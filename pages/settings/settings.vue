@@ -128,36 +128,38 @@
 				}
 				
 				// #ifdef H5
-				// 在H5环境下导出Excel
 				this.exportToExcel(products)
 				// #endif
 				
 				// #ifdef APP-PLUS
-				// 在APP环境下导出Excel
-				this.exportToExcel(products)
+				this.exportToAppFile(products)
+				// #endif
+				
+				// #ifdef MP-WEIXIN
+				this.exportToClipboard(products)
 				// #endif
 			},
 			
-			// 导出为Excel格式
+			// H5环境导出
 			exportToExcel(products) {
-				// 创建CSV格式的数据（Excel可以打开）
+				// 创建CSV格式的数据
 				let csvContent = '\ufeff' // 添加BOM，确保中文正确显示
 				
 				// 添加表头
-				csvContent += 'ID,商品名称,条形码,价格,备注,创建时间,查询时间\n'
+				csvContent += '条形码,商品名称,商品价格,备注\n'
 				
 				// 添加数据行
 				products.forEach(product => {
-					const id = product.id || ''
-					const name = product.name || ''
 					const barcode = product.barcode || ''
+					const name = product.name || ''
 					const price = product.price || ''
 					const remark = (product.remark || '').replace(/"/g, '""') // 转义双引号
-					const createTime = product.createTime ? new Date(product.createTime).toLocaleString() : ''
-					const queryTime = product.queryTime ? new Date(product.queryTime).toLocaleString() : ''
+					
+					// 处理条形码，确保长数字不被缩写
+					const formattedBarcode = barcode ? `="${barcode}"` : ''
 					
 					// 用双引号包围字段，处理包含逗号的文本
-					csvContent += `"${id}","${name}","${barcode}","${price}","${remark}","${createTime}","${queryTime}"\n`
+					csvContent += `${formattedBarcode},"${name}","${price}","${remark}"\n`
 				})
 				
 				const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -176,13 +178,127 @@
 				})
 			},
 			
+			// APP环境导出
+			exportToAppFile(products) {
+				console.log('开始APP环境导出，数据条数:', products.length)
+				
+				// 显示加载提示
+				uni.showLoading({
+					title: '正在导出...'
+				})
+				
+				// 创建CSV格式的数据
+				let csvContent = '\ufeff' // 添加BOM，确保中文正确显示
+				
+				// 添加表头
+				csvContent += '条形码,商品名称,商品价格,备注\n'
+				
+				// 添加数据行
+				products.forEach(product => {
+					const barcode = product.barcode || ''
+					const name = product.name || ''
+					const price = product.price || ''
+					const remark = (product.remark || '').replace(/"/g, '""') // 转义双引号
+					
+					// 处理条形码，确保长数字不被缩写
+					const formattedBarcode = barcode ? `="${barcode}"` : ''
+					
+					// 用双引号包围字段，处理包含逗号的文本
+					csvContent += `${formattedBarcode},"${name}","${price}","${remark}"\n`
+				})
+				
+				const fileName = `商品数据_${new Date().getTime()}.csv`
+				
+				// 写入文件
+				plus.io.requestFileSystem(plus.io.PRIVATE_DOC, (fs) => {
+					fs.root.getFile(fileName, { create: true }, (fileEntry) => {
+						fileEntry.createWriter((writer) => {
+							writer.write(csvContent)
+							writer.onwrite = () => {
+								console.log('文件写入成功')
+								uni.hideLoading()
+								
+								// 获取文件的绝对路径
+								try {
+									// 方法1：使用plus.io.convertLocalFileSystemURL
+									const relativePath = `_doc/${fileName}`
+									const absolutePath = plus.io.convertLocalFileSystemURL(relativePath)
+									console.log('文件绝对路径:', absolutePath)
+									this.showExportSuccess(absolutePath)
+								} catch (error) {
+									console.error('获取路径失败:', error)
+									try {
+										// 方法2：使用toLocalURL
+										if (typeof fileEntry.toLocalURL === 'function') {
+											fileEntry.toLocalURL((absolutePath) => {
+												console.log('文件绝对路径:', absolutePath)
+												this.showExportSuccess(absolutePath)
+											})
+										} else {
+											// 方法3：使用fullPath
+											const absolutePath = fileEntry.fullPath || fileEntry.nativeURL
+											console.log('文件绝对路径:', absolutePath)
+											this.showExportSuccess(absolutePath)
+										}
+									} catch (error2) {
+										console.error('获取路径失败:', error2)
+										// 方法4：使用默认路径
+										const defaultPath = `应用文档目录/${fileName}`
+										this.showExportSuccess(defaultPath)
+									}
+								}
+							}
+							writer.onerror = (e) => {
+								console.error('文件写入失败:', e)
+								uni.hideLoading()
+								uni.showToast({
+									title: '导出失败',
+									icon: 'none'
+								})
+							}
+						})
+					})
+				})
+			},
+			
+			// 微信小程序环境导出
+			exportToClipboard(products) {
+				// 创建CSV格式的数据
+				let csvContent = '条形码,商品名称,商品价格,备注\n'
+				
+				// 添加数据行
+				products.forEach(product => {
+					const barcode = product.barcode || ''
+					const name = product.name || ''
+					const price = product.price || ''
+					const remark = product.remark || ''
+					
+					// 处理条形码，确保长数字不被缩写
+					const formattedBarcode = barcode ? `="${barcode}"` : ''
+					
+					csvContent += `${formattedBarcode},${name},${price},${remark}\n`
+				})
+				
+				// 复制到剪贴板
+				uni.setClipboardData({
+					data: csvContent,
+					success: () => {
+						uni.showModal({
+							title: '导出成功',
+							content: '数据已复制到剪贴板，请粘贴到Excel中保存',
+							showCancel: false
+						})
+					}
+				})
+			},
+			
 			// 导入数据
 			importData() {
 				console.log('开始导入流程')
 				// 显示导入说明
 				uni.showModal({
 					title: '导入说明',
-					content: '1. 支持Excel格式的数据文件(.xlsx, .xls)\n2. 文件应包含：商品名称、条形码、价格、备注\n3. 重复检查：先查条形码，无条形码则查商品名称\n4. 价格必须为数值类型，否则会提示错误行号\n5. 空行将被自动忽略\n6. 建议先导出备份现有数据',
+					content: '1. 支持CSV格式的数据文件\n2. 文件应包含：条形码（选填）、商品名称（必填）、商品价格（必填，数值）、备注（选填）\n3. 重复检查：先查条形码，无条形码则查商品名称\n4. 商品名称和价格不能为空，价格必须为有效数值\n5. 空行将被自动忽略\n6. 建议先导出备份现有数据',
 					confirmText: '开始导入',
 					cancelText: '取消',
 					success: (res) => {
@@ -199,26 +315,113 @@
 			// 开始文件选择
 			startFileSelection() {
 				console.log('创建文件选择器')
-				// 创建隐藏的文件输入元素
-				const input = document.createElement('input')
-				input.type = 'file'
-				input.accept = '.xlsx,.xls'
-				input.style.display = 'none'
 				
-				input.onchange = (event) => {
-					const file = event.target.files[0]
-					if (file) {
-						console.log('用户选择文件:', file.name, '大小:', file.size, '字节')
-						this.processImportFile(file)
-					} else {
-						console.log('用户未选择文件')
+				// #ifdef H5
+				// H5环境使用DOM API
+				if (typeof document !== 'undefined') {
+					const input = document.createElement('input')
+					input.type = 'file'
+					input.accept = '.csv'
+					input.style.display = 'none'
+					
+					input.onchange = (event) => {
+						const file = event.target.files[0]
+						if (file) {
+							console.log('用户选择文件:', file.name, '大小:', file.size, '字节')
+							this.processImportFile(file)
+						} else {
+							console.log('用户未选择文件')
+						}
+						// 清理DOM元素
+						document.body.removeChild(input)
 					}
-					// 清理DOM元素
-					document.body.removeChild(input)
+					
+					document.body.appendChild(input)
+					input.click()
+				} else {
+					uni.showToast({
+						title: 'H5环境不支持文件选择',
+						icon: 'none'
+					})
 				}
+				// #endif
 				
-				document.body.appendChild(input)
-				input.click()
+				// #ifdef APP-PLUS
+				// APP环境使用plus.io API
+				uni.showModal({
+					title: '文件选择',
+					content: '请将CSV文件放到应用文档目录下，然后点击确定开始导入',
+					confirmText: '开始导入',
+					cancelText: '取消',
+					success: (res) => {
+						if (res.confirm) {
+							this.scanAppDirectory()
+						}
+					}
+				})
+				// #endif
+				
+				// #ifdef MP-WEIXIN
+				// 微信小程序环境
+				uni.showToast({
+					title: '微信小程序不支持文件导入',
+					icon: 'none'
+				})
+				// #endif
+			},
+			
+			// 扫描APP目录
+			scanAppDirectory() {
+				// #ifdef APP-PLUS
+				plus.io.requestFileSystem(plus.io.PRIVATE_DOC, (fs) => {
+					fs.root.createReader().readEntries((entries) => {
+						const csvFiles = entries.filter(entry => 
+							entry.isFile && entry.name.toLowerCase().endsWith('.csv')
+						)
+						
+						if (csvFiles.length === 0) {
+							uni.showModal({
+								title: '未找到CSV文件',
+								content: '应用文档目录下没有找到CSV文件，请先放入CSV文件',
+								confirmText: '确定',
+								showCancel: false
+							})
+							return
+						}
+						
+						// 显示文件选择列表
+						const fileNames = csvFiles.map(file => file.name)
+						uni.showActionSheet({
+							itemList: fileNames,
+							success: (res) => {
+								const selectedFile = csvFiles[res.tapIndex]
+								this.processAppFile(selectedFile)
+							}
+						})
+					})
+				})
+				// #endif
+			},
+			
+			// 处理APP文件
+			processAppFile(fileEntry) {
+				// #ifdef APP-PLUS
+				fileEntry.file((file) => {
+					const reader = new plus.io.FileReader()
+					reader.onload = (e) => {
+						const content = e.target.result
+						this.parseCSVContent(content)
+					}
+					reader.onerror = (e) => {
+						console.error('文件读取失败:', e)
+						uni.showToast({
+							title: '文件读取失败',
+							icon: 'none'
+						})
+					}
+					reader.readAsText(file, 'utf-8')
+				})
+				// #endif
 			},
 			
 			// 处理导入文件
@@ -226,10 +429,10 @@
 				console.log('开始处理文件:', file.name)
 				
 				// 检查文件类型
-				if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+				if (!file.name.endsWith('.csv')) {
 					console.log('文件格式不支持:', file.name)
 					uni.showToast({
-						title: '请选择Excel文件(.xlsx或.xls)',
+						title: '请选择CSV文件(.csv)',
 						icon: 'none'
 					})
 					return
@@ -250,130 +453,158 @@
 					title: '正在解析文件...'
 				})
 				
-				// 使用SheetJS库解析Excel文件
-				this.parseExcelFile(file)
-			},
-			
-			// 解析Excel文件
-			parseExcelFile(file) {
-				// 检查是否已加载SheetJS库
-				if (typeof XLSX === 'undefined') {
-					console.log('SheetJS库未加载，尝试动态加载')
-					this.loadSheetJS().then(() => {
-						this.parseExcelFile(file)
-					}).catch(error => {
-						console.error('加载SheetJS失败:', error)
-						uni.hideLoading()
-						uni.showToast({
-							title: 'Excel解析库加载失败',
-							icon: 'none'
-						})
-					})
-					return
-				}
-				
+				// 读取CSV文件
 				const reader = new FileReader()
 				reader.onload = (e) => {
-					try {
-						console.log('文件读取完成，开始解析')
-						const data = new Uint8Array(e.target.result)
-						const workbook = XLSX.read(data, { type: 'array' })
-						
-						console.log('工作簿信息:', {
-							工作表数量: workbook.SheetNames.length,
-							工作表名称: workbook.SheetNames
-						})
-						
-						// 获取第一个工作表
-						const sheetName = workbook.SheetNames[0]
-						const worksheet = workbook.Sheets[sheetName]
-						
-						console.log('使用工作表:', sheetName)
-						
-						// 将工作表转换为JSON
-						const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
-						
-						console.log('解析到的数据行数:', jsonData.length)
-						console.log('前3行数据:', jsonData.slice(0, 3))
-						
-						// 处理解析结果
-						const result = this.processExcelData(jsonData)
-						
-						uni.hideLoading()
-						
-						if (result.success) {
-							uni.setStorageSync('products', result.products)
-							this.loadStats()
-							
-							console.log('导入成功，数据统计:', {
-								总数据: result.products.length,
-								新增: result.newCount,
-								更新: result.updateCount,
-								跳过: result.skipCount
-							})
-							
-							uni.showToast({
-								title: `导入成功！新增${result.newCount}条，更新${result.updateCount}条`,
-								icon: 'success',
-								duration: 3000
-							})
-						} else {
-							console.log('导入失败，错误信息:', result.errors)
-							// 显示错误信息
-							uni.showModal({
-								title: '导入错误',
-								content: result.errors.join('\n'),
-								showCancel: false,
-								confirmText: '确定'
-							})
-						}
-					} catch (error) {
-						console.error('Excel解析错误:', error)
-						uni.hideLoading()
-						uni.showToast({
-							title: '文件解析失败',
-							icon: 'none'
-						})
-					}
+					const content = e.target.result
+					uni.hideLoading()
+					this.parseCSVContent(content)
 				}
-				
-				reader.onerror = (error) => {
-					console.error('文件读取错误:', error)
+				reader.onerror = (e) => {
+					console.error('文件读取失败:', e)
 					uni.hideLoading()
 					uni.showToast({
 						title: '文件读取失败',
 						icon: 'none'
 					})
 				}
-				
-				reader.readAsArrayBuffer(file)
+				reader.readAsText(file, 'utf-8')
 			},
 			
-			// 加载SheetJS库
-			loadSheetJS() {
-				return new Promise((resolve, reject) => {
-					if (typeof XLSX !== 'undefined') {
-						resolve()
+
+			
+
+			
+
+
+			
+
+			
+
+			
+
+			
+
+			
+
+			
+
+			
+			// 解析CSV内容
+			parseCSVContent(content) {
+				console.log('开始解析CSV内容')
+				
+				try {
+					// 移除BOM
+					if (content.charCodeAt(0) === 0xFEFF) {
+						content = content.substring(1)
+					}
+					
+					// 按行分割
+					const lines = content.split('\n').filter(line => line.trim() !== '')
+					console.log('CSV行数:', lines.length)
+					
+					if (lines.length < 2) {
+						uni.showToast({
+							title: '文件格式错误，至少需要表头和数据行',
+							icon: 'none'
+						})
 						return
 					}
 					
-					const script = document.createElement('script')
-					script.src = 'https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js'
-					script.onload = () => {
-						console.log('SheetJS库加载成功')
-						resolve()
+					// 解析表头
+					const header = this.parseCSVLine(lines[0])
+					console.log('表头:', header)
+					
+					// 验证表头格式
+					const expectedHeaders = ['条形码', '商品名称', '商品价格', '备注']
+					const headerMatch = expectedHeaders.every((expected, index) => 
+						header[index] && header[index].trim() === expected
+					)
+					
+					if (!headerMatch) {
+						uni.showModal({
+							title: '表头格式错误',
+							content: `期望的表头格式：${expectedHeaders.join(', ')}\n\n字段说明：\n- 条形码：选填\n- 商品名称：必填\n- 商品价格：必填，数值\n- 备注：选填\n\n实际表头：${header.join(', ')}`,
+							showCancel: false
+						})
+						return
 					}
-					script.onerror = () => {
-						console.error('SheetJS库加载失败')
-						reject(new Error('SheetJS库加载失败'))
+					
+					// 处理数据行
+					const result = this.processCSVData(lines.slice(1))
+					
+					if (result.success) {
+						console.log('导入成功:', {
+							新增: result.newCount,
+							更新: result.updateCount,
+							跳过: result.skipCount
+						})
+						
+						// 显示导入结果弹窗
+						uni.showModal({
+							title: '导入成功',
+							content: `导入完成！\n\n新增：${result.newCount}条\n更新：${result.updateCount}条\n跳过：${result.skipCount}条\n\n总计处理：${result.newCount + result.updateCount + result.skipCount}条数据`,
+							confirmText: '确定',
+							showCancel: false
+						})
+						
+						// 刷新统计信息
+						this.loadStats()
+					} else {
+						console.log('导入失败，错误信息:', result.errors)
+						uni.showModal({
+							title: '导入错误',
+							content: result.errors.join('\n'),
+							showCancel: false,
+							confirmText: '确定'
+						})
 					}
-					document.head.appendChild(script)
-				})
+					
+				} catch (error) {
+					console.error('CSV解析错误:', error)
+					uni.showToast({
+						title: '文件解析失败',
+						icon: 'none'
+					})
+				}
 			},
 			
-			// 处理Excel数据
-			processExcelData(jsonData) {
-				console.log('开始处理Excel数据')
+			// 解析CSV行
+			parseCSVLine(line) {
+				const result = []
+				let current = ''
+				let inQuotes = false
+				
+				for (let i = 0; i < line.length; i++) {
+					const char = line[i]
+					
+					if (char === '"') {
+						if (inQuotes && line[i + 1] === '"') {
+							// 转义的双引号
+							current += '"'
+							i++
+						} else {
+							// 开始或结束引号
+							inQuotes = !inQuotes
+						}
+					} else if (char === ',' && !inQuotes) {
+						// 字段分隔符
+						result.push(current.trim())
+						current = ''
+					} else {
+						current += char
+					}
+				}
+				
+				// 添加最后一个字段
+				result.push(current.trim())
+				return result
+			},
+			
+			// 处理CSV数据
+			processCSVData(dataLines) {
+				console.log('开始处理CSV数据')
 				
 				const products = []
 				const existingProducts = uni.getStorageSync('products') || []
@@ -382,136 +613,157 @@
 				let updateCount = 0
 				let skipCount = 0
 				
-				// 跳过表头行
-				for (let i = 1; i < jsonData.length; i++) {
-					const row = jsonData[i]
-					console.log(`处理第${i + 1}行:`, row)
+				// 处理每一行数据
+				for (let i = 0; i < dataLines.length; i++) {
+					const line = dataLines[i]
+					const rowNumber = i + 2 // 第2行开始是数据
+					console.log(`处理第${rowNumber}行:`, line)
 					
 					// 检查是否为空行
-					if (!row || row.length === 0 || row.every(cell => !cell || cell.toString().trim() === '')) {
-						console.log(`第${i + 1}行为空行，跳过`)
+					if (!line || line.trim() === '') {
+						console.log(`第${rowNumber}行为空行，跳过`)
 						skipCount++
 						continue
 					}
 					
-					// 确保至少有3个字段
-					if (row.length < 3) {
-						const error = `第${i + 1}行：数据格式错误，至少需要商品名称、条形码、价格三个字段`
+					// 解析行数据
+					const fields = this.parseCSVLine(line)
+					console.log(`第${rowNumber}行字段:`, fields)
+					
+					// 确保至少有2个字段（商品名称和价格是必填的）
+					if (fields.length < 2) {
+						const error = `第${rowNumber}行：数据格式错误，至少需要商品名称和价格两个字段`
 						console.log(error)
 						errors.push(error)
 						continue
 					}
 					
-					const name = (row[0] || '').toString().trim()
-					const barcode = (row[1] || '').toString().trim()
-					const price = (row[2] || '').toString().trim()
-					const remark = (row[3] || '').toString().trim()
+					const barcode = fields[0] || ''
+					const name = fields[1] || ''
+					const price = fields[2] || ''
+					const remark = fields[3] || ''
 					
-					console.log(`第${i + 1}行数据:`, { name, barcode, price, remark })
+					console.log(`第${rowNumber}行数据:`, { barcode, name, price, remark })
 					
-					// 数据校验
-					if (!name) {
-						const error = `第${i + 1}行：商品名称不能为空`
+					// 验证数据
+					if (!name || name.trim() === '') {
+						const error = `第${rowNumber}行：商品名称不能为空（必填字段）`
 						console.log(error)
 						errors.push(error)
 						continue
 					}
 					
-					if (!price) {
-						const error = `第${i + 1}行：价格不能为空`
+					if (!price || price.trim() === '') {
+						const error = `第${rowNumber}行：商品价格不能为空（必填字段）`
 						console.log(error)
 						errors.push(error)
 						continue
 					}
 					
-					// 价格校验
-					if (isNaN(parseFloat(price))) {
-						const error = `第${i + 1}行：价格"${price}"不是有效的数值`
+					// 验证价格是否为有效数字
+					const priceNum = parseFloat(price)
+					if (isNaN(priceNum) || priceNum < 0) {
+						const error = `第${rowNumber}行：商品价格必须是有效的正数，当前值："${price}"`
 						console.log(error)
 						errors.push(error)
 						continue
 					}
 					
-					// 重复检查
+					// 检查重复
 					let existingIndex = -1
-					
-					// 先检查条形码
-					if (barcode) {
+					if (barcode && barcode.trim() !== '') {
+						// 先按条形码查找（条形码是选填的，但如果有值则优先按条形码查找）
 						existingIndex = existingProducts.findIndex(p => p.barcode && p.barcode === barcode)
 						if (existingIndex !== -1) {
-							console.log(`第${i + 1}行：发现重复条形码"${barcode}"，将更新现有商品`)
-						}
-					} else {
-						// 无条形码则检查商品名称
-						existingIndex = existingProducts.findIndex(p => p.name && p.name === name)
-						if (existingIndex !== -1) {
-							console.log(`第${i + 1}行：发现重复商品名称"${name}"，将更新现有商品`)
+							console.log(`第${rowNumber}行：发现重复条形码"${barcode}"，将更新现有商品`)
 						}
 					}
 					
+					if (existingIndex === -1) {
+						// 再按商品名称查找
+						existingIndex = existingProducts.findIndex(p => p.name && p.name === name)
+						if (existingIndex !== -1) {
+							console.log(`第${rowNumber}行：发现重复商品名称"${name}"，将更新现有商品`)
+						}
+					}
+					
+					// 创建或更新商品
 					const product = {
 						id: this.generateId(),
-						name: name,
-						barcode: barcode,
-						price: price,
-						remark: remark,
+						barcode: barcode.trim(), // 条形码（选填）
+						name: name.trim(), // 商品名称（必填）
+						price: priceNum.toString(), // 商品价格（必填，数值）
+						remark: remark.trim(), // 备注（选填）
 						createTime: new Date().getTime(),
 						queryTime: new Date().getTime()
 					}
 					
 					if (existingIndex !== -1) {
 						// 更新现有商品
-						product.id = existingProducts[existingIndex].id
-						product.createTime = existingProducts[existingIndex].createTime
+						const existingProduct = existingProducts[existingIndex]
+						product.id = existingProduct.id
+						product.createTime = existingProduct.createTime
 						existingProducts[existingIndex] = product
 						updateCount++
-						console.log(`第${i + 1}行：更新现有商品，ID: ${product.id}`)
+						console.log(`第${rowNumber}行：更新商品`, product)
 					} else {
 						// 添加新商品
-						products.push(product)
+						existingProducts.push(product)
 						newCount++
-						console.log(`第${i + 1}行：添加新商品，ID: ${product.id}`)
+						console.log(`第${rowNumber}行：新增商品`, product)
 					}
 				}
 				
-				// 合并现有数据和新数据
-				const allProducts = [...existingProducts, ...products]
-				
-				console.log('数据处理完成:', {
-					总数据: allProducts.length,
-					新增: newCount,
-					更新: updateCount,
-					跳过: skipCount,
-					错误: errors.length
-				})
-				
-				if (errors.length > 0) {
+				// 保存数据
+				if (errors.length === 0) {
+					uni.setStorageSync('products', existingProducts)
+					console.log('数据保存成功')
+					return {
+						success: true,
+						newCount,
+						updateCount,
+						skipCount
+					}
+				} else {
+					console.log('数据验证失败，错误数:', errors.length)
 					return {
 						success: false,
-						errors: errors
+						errors
 					}
-				}
-				
-				return {
-					success: true,
-					products: allProducts,
-					newCount: newCount,
-					updateCount: updateCount,
-					skipCount: skipCount
 				}
 			},
 			
-
-			
-
-			
-
-			
-
-			
-
-			
-
+			// 显示导出成功信息
+			showExportSuccess(filePath) {
+				console.log('显示导出成功，文件路径:', filePath)
+				
+				// 显示绝对路径
+				uni.showModal({
+					title: '导出成功',
+					content: `文件已保存到:\n${filePath}\n\n文件路径已复制到剪贴板`,
+					confirmText: '确定',
+					showCancel: false,
+					success: () => {
+						// 复制文件路径到剪贴板
+						uni.setClipboardData({
+							data: filePath,
+							success: () => {
+								uni.showToast({
+									title: '路径已复制',
+									icon: 'success'
+								})
+							},
+							fail: (err) => {
+								console.error('复制到剪贴板失败:', err)
+								uni.showToast({
+									title: '路径获取成功',
+									icon: 'success'
+								})
+							}
+						})
+					}
+				})
+			},
 			
 			// 生成唯一ID
 			generateId() {

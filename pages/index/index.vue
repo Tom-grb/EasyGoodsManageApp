@@ -108,7 +108,7 @@
 					</view>
 					<view class="detail-item">
 						<text class="detail-label">备注 <text class="optional-text">(可选)</text></text>
-						<textarea class="detail-textarea" v-model="currentProduct.remark" placeholder="请输入备注信息" />
+						<input class="detail-input" v-model="currentProduct.remark" placeholder="请输入备注信息" />
 					</view>
 				</view>
 				<view class="modal-footer">
@@ -142,7 +142,7 @@
 					</view>
 					<view class="detail-item">
 						<text class="detail-label">备注 <text class="optional-text">(可选)</text></text>
-						<textarea class="detail-textarea" v-model="newProduct.remark" placeholder="请输入备注信息" />
+						<input class="detail-input" v-model="newProduct.remark" placeholder="请输入备注信息" />
 					</view>
 				</view>
 				<view class="modal-footer">
@@ -453,9 +453,11 @@
 			
 			// 显示新增商品弹窗
 			showAddProduct() {
+				// 如果条形码已经设置（来自扫码），则保留；否则清空
+				const currentBarcode = this.newProduct.barcode || ''
 				this.newProduct = {
 					name: '',
-					barcode: '',
+					barcode: currentBarcode,
 					price: '',
 					remark: '',
 					queryTime: new Date().getTime()
@@ -525,17 +527,36 @@
 				uni.scanCode({
 					success: (res) => {
 						const barcode = res.result
+						console.log('扫码结果:', barcode)
+						
 						let products = uni.getStorageSync('products') || []
 						const product = products.find(p => p.barcode === barcode)
 						
 						if (product) {
+							console.log('找到商品:', product)
 							this.showProductDetail(product)
 						} else {
-							this.newProduct.barcode = barcode
-							this.showAddProduct()
+							console.log('未找到商品，准备新增，条形码:', barcode)
+							// 先设置条形码，再显示新增弹窗
+							this.newProduct = {
+								name: '',
+								barcode: barcode,
+								price: '',
+								remark: '',
+								queryTime: new Date().getTime()
+							}
+							this.showAdd = true
+							
+							// 提示用户
+							uni.showToast({
+								title: '未找到商品，请添加新商品',
+								icon: 'none',
+								duration: 2000
+							})
 						}
 					},
-					fail: () => {
+					fail: (err) => {
+						console.error('扫码失败:', err)
 						uni.showToast({
 							title: '扫码失败',
 							icon: 'none'
@@ -557,12 +578,18 @@
 
 <style>
 	.container {
-		height: 100vh;
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 		padding: 20rpx;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		box-sizing: border-box;
+		z-index: 1;
 	}
 
 	/* 搜索区域 */
@@ -570,6 +597,7 @@
 		display: flex;
 		align-items: center;
 		margin-bottom: 30rpx;
+		flex-shrink: 0;
 	}
 
 	.search-bar {
@@ -617,12 +645,14 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		min-height: 0;
 	}
 
 	.list-header {
 		display: flex;
 		align-items: center;
 		margin-bottom: 30rpx;
+		flex-shrink: 0;
 	}
 
 	.list-title {
@@ -644,6 +674,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 80rpx 0;
+		min-height: 0;
 	}
 
 	.empty-icon {
@@ -669,6 +700,8 @@
 		flex-direction: column;
 		gap: 20rpx;
 		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		min-height: 0;
 	}
 
 	/* 加载更多按钮 */
@@ -770,6 +803,7 @@
 		display: flex;
 		gap: 20rpx;
 		margin-top: auto;
+		flex-shrink: 0;
 	}
 
 	.action-btn {
@@ -896,7 +930,6 @@
 	}
 
 	.detail-textarea {
-		width: 100%;
 		height: 120rpx;
 		border: 2rpx solid #e9ecef;
 		border-radius: 10rpx;

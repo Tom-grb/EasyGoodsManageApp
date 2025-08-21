@@ -59,7 +59,7 @@
 							<text class="history-text">{{item.length > 4 ? item.substring(0, 4) + '...' : item}}</text>
 						</view>
 						<view class="history-delete" @click="deleteHistoryItem(index)">
-							<text class="iconfont icon-delete"></text>
+							x
 						</view>
 					</view>
 				</view>
@@ -116,7 +116,7 @@
 					</view>
 					<view class="detail-item">
 						<text class="detail-label">备注 <text class="optional-text">(可选)</text></text>
-						<textarea class="detail-textarea" v-model="currentProduct.remark" placeholder="请输入备注信息" />
+						<input class="detail-input" v-model="currentProduct.remark" placeholder="请输入备注信息" />
 					</view>
 				</view>
 				<view class="modal-footer">
@@ -647,14 +647,14 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: #dc3545;
+		color: #9b9697;
 		border-radius: 50%;
 		transition: background-color 0.3s ease;
 		margin-left: 10rpx;
 	}
 
 	.history-delete:active {
-		background-color: rgba(220, 53, 69, 0.1);
+		background-color: rgba(83, 81, 81, 0.1);
 	}
 
 	/* 搜索结果列表 */
@@ -801,7 +801,6 @@
 	}
 
 	.detail-input {
-		width: 100%;
 		height: 80rpx;
 		border: 2rpx solid #e9ecef;
 		border-radius: 10rpx;
