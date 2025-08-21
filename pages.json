@@ -6,7 +6,6 @@
 				"navigationBarTitleText": "商品管理",
 				"navigationBarBackgroundColor": "#ffffff",
 				"navigationBarTextStyle": "black",
-				"enablePullDownRefresh": true,
 				"onReachBottomDistance": 50
 			}
 		},

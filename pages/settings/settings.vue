@@ -298,7 +298,7 @@
 				// 显示导入说明
 				uni.showModal({
 					title: '导入说明',
-					content: '1. 支持CSV格式的数据文件\n2. 文件应包含：条形码（选填）、商品名称（必填）、商品价格（必填，数值）、备注（选填）\n3. 重复检查：先查条形码，无条形码则查商品名称\n4. 商品名称和价格不能为空，价格必须为有效数值\n5. 空行将被自动忽略\n6. 建议先导出备份现有数据',
+					content: '1. 支持CSV格式的数据文件\n2. 文件应包含：条形码（选填）、商品名称（必填）、商品价格（必填，数值）、备注（选填）\n3. 重复检查：先查条形码，无条形码重复，则查商品名称，无重复才插入，否则替换\n4. 商品名称和价格不能为空，价格必须为有效数值\n5. 空行将被自动忽略\n6. 建议先导出备份现有数据\n7.从应用文档目录选择文件',
 					confirmText: '开始导入',
 					cancelText: '取消',
 					success: (res) => {
@@ -347,18 +347,8 @@
 				// #endif
 				
 				// #ifdef APP-PLUS
-				// APP环境使用plus.io API
-				uni.showModal({
-					title: '文件选择',
-					content: '请将CSV文件放到应用文档目录下，然后点击确定开始导入',
-					confirmText: '开始导入',
-					cancelText: '取消',
-					success: (res) => {
-						if (res.confirm) {
-							this.scanAppDirectory()
-						}
-					}
-				})
+				// APP环境直接使用应用文档目录选择
+				this.scanAppDirectory()
 				// #endif
 				
 				// #ifdef MP-WEIXIN
@@ -369,6 +359,8 @@
 				})
 				// #endif
 			},
+			
+
 			
 			// 扫描APP目录
 			scanAppDirectory() {

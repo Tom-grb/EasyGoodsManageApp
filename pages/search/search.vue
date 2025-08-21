@@ -104,7 +104,12 @@
 				<view class="modal-body">
 					<view class="detail-item">
 						<text class="detail-label">条形码 <text class="optional-text">(可选)</text></text>
-						<input class="detail-input" v-model="currentProduct.barcode" placeholder="请输入条形码" />
+						<view class="input-with-scan">
+							<input class="detail-input" v-model="currentProduct.barcode" placeholder="请输入条形码" />
+							<view class="scan-btn" @click="scanBarcodeForInput">
+								<image class="scan-icon" src="/static/scanIcon.svg" mode="aspectFit"></image>
+							</view>
+						</view>
 					</view>
 					<view class="detail-item">
 						<text class="detail-label">商品名称 <text class="required-text">*</text></text>
@@ -410,6 +415,40 @@
 						}
 					})
 				}, 100)
+			},
+			
+			// 为输入框扫描条形码
+			scanBarcodeForInput() {
+				// #ifdef APP-PLUS
+				uni.scanCode({
+					success: (res) => {
+						console.log('扫码结果:', res)
+						const barcode = res.result
+						
+						// 填充到当前商品的条形码输入框
+						this.currentProduct.barcode = barcode
+						
+						uni.showToast({
+							title: '条形码已填充',
+							icon: 'success'
+						})
+					},
+					fail: (err) => {
+						console.log('扫码失败:', err)
+						uni.showToast({
+							title: '扫码失败',
+							icon: 'none'
+						})
+					}
+				})
+				// #endif
+				
+				// #ifndef APP-PLUS
+				uni.showToast({
+					title: 'APP环境才支持扫码功能',
+					icon: 'none'
+				})
+				// #endif
 			}
 		}
 	}
@@ -856,4 +895,38 @@
 	.icon-settings::before { content: "⚙️"; }
 	.icon-close::before { content: "✕"; }
 	.icon-arrow-right::before { content: "→"; }
+	
+	/* 带扫描按钮的输入框 */
+	.input-with-scan {
+		display: flex;
+		align-items: center;
+		gap: 15rpx;
+	}
+	
+	.input-with-scan .detail-input {
+		flex: 1;
+	}
+	
+	.scan-btn {
+		width: 60rpx;
+		height: 60rpx;
+		background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+		border-radius: 30rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-shadow: 0 4rpx 12rpx rgba(0, 123, 255, 0.3);
+		transition: all 0.3s ease;
+	}
+	
+	.scan-btn:active {
+		transform: scale(0.95);
+		box-shadow: 0 2rpx 8rpx rgba(0, 123, 255, 0.4);
+	}
+	
+	.scan-icon {
+		width: 32rpx;
+		height: 32rpx;
+		filter: brightness(0) invert(1); /* 将SVG图标转换为白色 */
+	}
 </style> 

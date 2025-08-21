@@ -1,5 +1,5 @@
 {
-    "name" : "easyGoodsManage",
+    "name" : "商品管理",
     "appid" : "__UNI__E81EB6A",
     "description" : "",
     "versionName" : "1.0.0",
@@ -41,9 +41,19 @@
                 ]
             },
             /* ios打包配置 */
-            "ios" : {},
+            "ios" : {
+                "dSYMs" : false
+            },
             /* SDK配置 */
-            "sdkConfigs" : {}
+            "sdkConfigs" : {},
+            "icons" : {
+                "android" : {
+                    "hdpi" : "static/logo.png",
+                    "xhdpi" : "static/logo.png",
+                    "xxhdpi" : "static/logo.png",
+                    "xxxhdpi" : "static/logo.png"
+                }
+            }
         }
     },
     /* 快应用特有相关 */
