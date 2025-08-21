@@ -417,21 +417,97 @@
 				}, 100)
 			},
 			
+			// 从API获取商品信息
+			async getProductFromAPI(barcode) {
+				try {
+					// 获取API配置
+					const appId = uni.getStorageSync('appId') || ''
+					const appSecret = uni.getStorageSync('appSecret') || ''
+					
+					// 检查是否配置了API
+					if (!appId || !appSecret) {
+						console.log('API配置未完成，跳过API查询')
+						return { name: '', price: '', remark: '' }
+					}
+					
+					console.log('开始查询API，条形码:', barcode)
+					
+					// 显示加载提示
+					uni.showLoading({
+						title: '正在查询商品信息...'
+					})
+					
+					// 调用API
+					const res = await uni.request({
+						url: 'https://www.mxnzp.com/api/barcode/goods/details',
+						method: 'GET',
+						data: {
+							barcode: barcode,
+							app_id: appId,
+							app_secret: appSecret
+						}
+					});
+					
+					uni.hideLoading()
+					
+					console.log('API响应:', res)
+					
+					// 检查响应
+					if (res.statusCode === 200 && res.data) {
+						const data = res.data
+						
+						// 检查API返回的数据结构
+						if (data.code === 1 && data.data) {
+							const productData = data.data
+							console.log('API返回商品信息:', productData)
+							
+							return {
+								name: productData.name || productData.goodsName || '',
+								price: '',
+								remark: ''
+							}
+						} else {
+							console.log('API返回错误:', data.msg || '未知错误')
+							return { name: '', price: '', remark: '' }
+						}
+					} else {
+						console.log('API请求失败，状态码:', res.statusCode)
+						return { name: '', price: '', remark: '' }
+					}
+					
+				} catch (error) {
+					console.error('API调用异常:', error)
+					uni.hideLoading()
+					return { name: '', price: '', remark: '' }
+				}
+			},
+			
 			// 为输入框扫描条形码
 			scanBarcodeForInput() {
 				// #ifdef APP-PLUS
 				uni.scanCode({
-					success: (res) => {
+					success: async (res) => {
 						console.log('扫码结果:', res)
 						const barcode = res.result
 						
 						// 填充到当前商品的条形码输入框
 						this.currentProduct.barcode = barcode
 						
-						uni.showToast({
-							title: '条形码已填充',
-							icon: 'success'
-						})
+						// 尝试从API获取商品名称
+						const apiProduct = await this.getProductFromAPI(barcode)
+						console.log('API返回商品信息:', apiProduct)
+						if (apiProduct.name) {
+							this.currentProduct.name = apiProduct.name
+							uni.showToast({
+								title: '已获取商品名称',
+								icon: 'success'
+							})
+						} else {
+							uni.showToast({
+								title: '条形码已填充',
+								icon: 'success'
+							})
+						}
 					},
 					fail: (err) => {
 						console.log('扫码失败:', err)

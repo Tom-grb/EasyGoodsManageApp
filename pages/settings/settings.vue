@@ -61,6 +61,35 @@
 			</view>
 		</view>
 
+		<!-- API配置 -->
+		<view class="api-section">
+			<view class="section-title">API配置</view>
+			<view class="api-config">
+				<view class="config-item">
+					<text class="config-label">AppID</text>
+					<input 
+						class="config-input" 
+						v-model="appId" 
+						placeholder="请输入AppID"
+						@blur="saveApiConfig"
+					/>
+				</view>
+				<view class="config-item">
+					<text class="config-label">AppSecret</text>
+					<input 
+						class="config-input" 
+						v-model="appSecret" 
+						placeholder="请输入AppSecret"
+						password
+						@blur="saveApiConfig"
+					/>
+				</view>
+				<view class="config-tips">
+					<text class="tips-text">用于扫码获取商品名称，配置后扫码时将自动查询在线数据库获取商品名称</text>
+				</view>
+			</view>
+		</view>
+
 		<!-- 应用信息 -->
 		<view class="app-section">
 			<view class="section-title">应用信息</view>
@@ -89,13 +118,46 @@
 		data() {
 			return {
 				totalProducts: 0,
-				todayAdded: 0
+				todayAdded: 0,
+				appId: '',
+				appSecret: ''
 			}
 		},
 		onLoad() {
 			this.loadStats()
+			this.loadApiConfig()
 		},
 		methods: {
+			// 加载API配置
+			loadApiConfig() {
+				this.appId = uni.getStorageSync('appId') || ''
+				this.appSecret = uni.getStorageSync('appSecret') || ''
+			},
+			
+			// 保存API配置
+			saveApiConfig() {
+				// 二次确认
+				uni.showModal({
+					title: '确认修改',
+					content: '确定要修改API配置吗？',
+					confirmText: '确定',
+					cancelText: '取消',
+					success: (res) => {
+						if (res.confirm) {
+							uni.setStorageSync('appId', this.appId)
+							uni.setStorageSync('appSecret', this.appSecret)
+							uni.showToast({
+								title: '配置已保存',
+								icon: 'success'
+							})
+						} else {
+							// 取消时恢复原值
+							this.loadApiConfig()
+						}
+					}
+				})
+			},
+			
 			// 加载统计信息
 			loadStats() {
 				const products = uni.getStorageSync('products') || []
@@ -839,6 +901,58 @@
 	.stats-label {
 		font-size: 24rpx;
 		color: #6c757d;
+	}
+
+	/* API配置 */
+	.api-section {
+		background: #ffffff;
+		border-radius: 20rpx;
+		padding: 30rpx;
+		margin-bottom: 30rpx;
+		box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+	}
+
+	.api-config {
+		display: flex;
+		flex-direction: column;
+		gap: 20rpx;
+	}
+
+	.config-item {
+		display: flex;
+		flex-direction: column;
+		gap: 10rpx;
+	}
+
+	.config-label {
+		font-size: 28rpx;
+		color: #495057;
+		font-weight: 500;
+	}
+
+	.config-input {
+		height: 80rpx;
+		border: 2rpx solid #e9ecef;
+		border-radius: 10rpx;
+		padding: 0 20rpx;
+		font-size: 28rpx;
+		color: #212529;
+		background: #f8f9fa;
+	}
+
+	.config-input:focus {
+		border-color: #007bff;
+		background: #ffffff;
+	}
+
+	.config-tips {
+		margin-top: 10rpx;
+	}
+
+	.tips-text {
+		font-size: 24rpx;
+		color: #6c757d;
+		line-height: 1.5;
 	}
 
 	/* 数据管理 */
